@@ -13,7 +13,7 @@ type (
 		Compensate(context.Context) error
 	}
 
-	// parallelCompensation when set to true, runs each compensation in separated goroutine
+	// parallelCompensation when set to true, runs each compensation in separated goroutine, in parallel compensation, errors are ignored
 	// continueWithCompensationError ignores compensation error
 	// actions are executed in the order they were added
 	// compensation are executed in the order they were added
@@ -39,7 +39,13 @@ func (s *saga) Run(ctx context.Context) error {
 	for _, action := range s.actions {
 		err := action.Act(ctx)
 		if err != nil {
-			s.Compensate(ctx)
+			compErr := s.Compensate(ctx)
+			if compErr != nil {
+				return CompensationError{
+					err:    compErr,
+					actErr: err,
+				}
+			}
 			return err
 		}
 	}
@@ -54,24 +60,22 @@ func compensate(ctx context.Context, c compensation, continueWithCompensationErr
 	return nil
 }
 
-func (s *saga) Compensate(ctx context.Context) {
+func (s *saga) Compensate(ctx context.Context) error {
 	if s.parallelCompensation == true {
 		for _, compensation := range s.compensations {
-			func() {
-				err := compensate(ctx, compensation, s.continueWithCompensationError)
-				if err != nil {
-					panic(err)
-				}
+			go func() {
+				_ = compensate(ctx, compensation, s.continueWithCompensationError)
 			}()
 		}
-		return
+		return nil
 	}
 	for _, compensation := range s.compensations {
 		err := compensate(ctx, compensation, s.continueWithCompensationError)
 		if err != nil {
-			panic(err)
+			return err
 		}
 	}
+	return nil
 }
 
 func (s *saga) ContinueWithCompensationError(continueWithCompensationError bool) *saga {
