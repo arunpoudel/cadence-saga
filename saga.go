@@ -13,16 +13,20 @@ type (
 		Compensate(context.Context) error
 	}
 
+	// parallelCompensation when set to true, runs each compensation in separated goroutine
+	// continueWithCompensationError ignores compensation error
+	// actions are executed in the order they were added
+	// compensation are executed in the order they were added
 	saga struct {
 		parallelCompensation          bool
 		continueWithCompensationError bool
-		action                        action
+		actions                       []action
 		compensations                 []compensation
 	}
 )
 
 func (s *saga) Action(act action) *saga {
-	s.action = act
+	s.actions = append(s.actions, act)
 	return s
 }
 
@@ -32,11 +36,14 @@ func (s *saga) WithCompensation(comp compensation) *saga {
 }
 
 func (s *saga) Run(ctx context.Context) error {
-	err := s.action.Act(ctx)
-	if err != nil {
-		s.Compensate(ctx)
+	for _, action := range s.actions {
+		err := action.Act(ctx)
+		if err != nil {
+			s.Compensate(ctx)
+			return err
+		}
 	}
-	return err
+	return nil
 }
 
 func compensate(ctx context.Context, c compensation, continueWithCompensationError bool) error {
