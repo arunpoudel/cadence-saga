@@ -39,10 +39,29 @@ func (s *saga) Run(ctx context.Context) error {
 	return err
 }
 
+func compensate(ctx context.Context, c compensation, continueWithCompensationError bool) error {
+	err := c.Compensate(ctx)
+	if err != nil && continueWithCompensationError == false {
+		return err
+	}
+	return nil
+}
+
 func (s *saga) Compensate(ctx context.Context) {
+	if s.parallelCompensation == true {
+		for _, compensation := range s.compensations {
+			func() {
+				err := compensate(ctx, compensation, s.continueWithCompensationError)
+				if err != nil {
+					panic(err)
+				}
+			}()
+		}
+		return
+	}
 	for _, compensation := range s.compensations {
-		err := compensation.Compensate(ctx)
-		if err != nil && s.parallelCompensation == false && s.continueWithCompensationError == false {
+		err := compensate(ctx, compensation, s.continueWithCompensationError)
+		if err != nil {
 			panic(err)
 		}
 	}

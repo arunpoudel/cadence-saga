@@ -49,10 +49,12 @@ func Test_CompensationRunsOnActionFailure(t *testing.T) {
 func TestSaga_ParallelCompensation(t *testing.T) {
 	ctx := context.Background()
 	saga := NewSaga()
-	err := saga.Action(sageAction{Fail: true}).WithCompensation(compensator{Fail: true}).ParallelCompensation(true).Run(ctx)
-	if err == nil {
-		t.Errorf("expected error to be present")
-	}
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("expected it to panic, but didn't")
+		}
+	}()
+	_ = saga.Action(sageAction{Fail: true}).WithCompensation(compensator{Fail: true}).ParallelCompensation(true).Run(ctx)
 }
 
 func TestSaga_ParallelCompensation2(t *testing.T) {
