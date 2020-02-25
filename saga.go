@@ -64,7 +64,7 @@ func (s *saga) Compensate(ctx context.Context) error {
 	if s.parallelCompensation == true {
 		for _, compensation := range s.compensations {
 			go func() {
-				_ = compensate(ctx, compensation, s.continueWithCompensationError)
+				_ = compensate(ctx, compensation, true)
 			}()
 		}
 		return nil
