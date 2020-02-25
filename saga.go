@@ -42,7 +42,7 @@ func (s *saga) Run(ctx context.Context) error {
 func (s *saga) Compensate(ctx context.Context) {
 	for _, compensation := range s.compensations {
 		err := compensation.Compensate(ctx)
-		if err != nil && s.parallelCompensation != true && s.continueWithCompensationError == false {
+		if err != nil && s.parallelCompensation == false && s.continueWithCompensationError == false {
 			panic(err)
 		}
 	}
